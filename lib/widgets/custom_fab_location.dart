@@ -22,3 +22,4 @@ class FloatingAboveBarFabLocation extends FloatingActionButtonLocation {
     return Offset(fabX, fabY);
   }
 }
+
