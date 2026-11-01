@@ -18,7 +18,10 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
 
   void _login() async {
-    if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Email dan Password harus diisi!', style: GoogleFonts.plusJakartaSans()),
@@ -31,30 +34,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    String? error = await AuthService().login(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-    );
+    String? error = await AuthService().login(email, password);
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (error == null) {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const DashboardScreen()),
-        );
-      }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      );
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal Login: $error', style: GoogleFonts.plusJakartaSans()),
-            backgroundColor: const Color(0xFFEE5D50),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error, style: GoogleFonts.plusJakartaSans()),
+          backgroundColor: const Color(0xFFEE5D50),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -214,7 +211,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                          )
                         : Text(
                             'Masuk Sekarang',
                             style: GoogleFonts.plusJakartaSans(

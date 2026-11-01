@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,18 +6,35 @@ import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Inisialisasi Firebase dengan konfigurasi khusus Web/Chrome
-  await Firebase.initializeApp(
-    options: const FirebaseOptions(
-      apiKey: "AIzaSyCH4vAecvTKrulFtyALjuf0jFJkMaVdE3I",
-      authDomain: "kostku-a77e1.firebaseapp.com",
-      projectId: "kostku-a77e1",
-      storageBucket: "kostku-a77e1.firebasestorage.app",
-      messagingSenderId: "1020060343523",
-      appId: "1:1020060343523:web:855f246f41f0674896f9d6",
-    ),
-  );
+
+  // Inisialisasi Firebase adaptif (Web menggunakan options, Mobile menggunakan google-services.json)
+  if (kIsWeb) {
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyCH4vAecvTKrulFtyALjuf0jFJkMaVdE3I",
+        authDomain: "kostku-a77e1.firebaseapp.com",
+        projectId: "kostku-a77e1",
+        storageBucket: "kostku-a77e1.firebasestorage.app",
+        messagingSenderId: "1020060343523",
+        appId: "1:1020060343523:web:855f246f41f0674896f9d6",
+      ),
+    );
+  } else {
+    try {
+      await Firebase.initializeApp();
+    } catch (_) {
+      // Fallback jika google-services.json memerlukan explicit options
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: "AIzaSyB_xGXse_rU9xOEGOh9c9cni4CqElp2qSY",
+          appId: "1:1020060343523:android:4ce1d3b8a6381b3f96f9d6",
+          messagingSenderId: "1020060343523",
+          projectId: "kostku-a77e1",
+          storageBucket: "kostku-a77e1.firebasestorage.app",
+        ),
+      );
+    }
+  }
 
   runApp(const MyApp());
 }
@@ -41,7 +59,6 @@ class MyApp extends StatelessWidget {
           primary: primaryNavy,
           secondary: accentIndigo,
           surface: Colors.white,
-          background: scaffoldBg,
         ),
         textTheme: GoogleFonts.plusJakartaSansTextTheme(
           Theme.of(context).textTheme,

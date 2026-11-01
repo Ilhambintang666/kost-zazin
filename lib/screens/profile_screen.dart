@@ -24,15 +24,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
         child: Column(
           children: [
             // Center Profile Avatar with Glowing Ring
-            FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(currentUser?.uid)
-                  .get(),
+            StreamBuilder<DocumentSnapshot>(
+              stream: currentUser != null
+                  ? FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).snapshots()
+                  : null,
               builder: (context, snapshot) {
                 String name = 'Admin Kost';
                 String email = currentUser?.email ?? 'admin@kostku.com';
@@ -79,15 +78,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      name,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: primaryNavy,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          name,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: primaryNavy,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 18, color: accentIndigo),
+                          onPressed: () => _editProfileName(name),
+                          tooltip: 'Ubah Nama',
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                       decoration: BoxDecoration(
@@ -114,6 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0x081B254B),
@@ -134,13 +145,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildSettingsRow(
                     icon: Icons.info_outline_rounded,
                     title: 'Versi Aplikasi',
-                    subtitle: 'KostKu v1.0.0 (Class Presentation)',
+                    subtitle: 'KostKu v1.0.0 (Production Ready)',
                   ),
                   const Divider(height: 1, indent: 64, color: Color(0xFFF4F7FE)),
                   _buildSettingsRow(
                     icon: Icons.security_rounded,
                     title: 'Keamanan Database',
-                    subtitle: 'Firebase Authentication & Firestore',
+                    subtitle: 'Firebase Authentication & Cloud Firestore',
                   ),
                 ],
               ),
@@ -208,6 +219,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
         style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFFA3AED0)),
       ),
       trailing: trailing,
+    );
+  }
+
+  void _editProfileName(String currentName) {
+    final controller = TextEditingController(text: currentName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('Ubah Nama Profil', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: 'Nama lengkap Anda',
+            labelText: 'Nama Lengkap',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty && currentUser != null) {
+                Navigator.pop(ctx);
+                await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).set({
+                  'name': newName,
+                }, SetOptions(merge: true));
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
     );
   }
 

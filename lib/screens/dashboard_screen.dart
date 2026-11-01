@@ -23,7 +23,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ];
 
   final List<String> _titles = const [
-    'KostKu Le',
+    'KostKu',
     'Manajemen Kamar',
     'Pembayaran & Tagihan',
     'Profil Admin',
@@ -33,6 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     const primaryNavy = Color(0xFF2B3674);
     const accentIndigo = Color(0xFF4318FF);
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -71,19 +72,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Positioned(
             left: 20,
             right: 20,
-            bottom: 16,
+            bottom: bottomPadding > 0 ? bottomPadding + 8 : 16,
             child: Container(
               height: 66,
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: const Color(0xFFF4F7FE), width: 1.5),
+                border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
                 boxShadow: const [
                   BoxShadow(
-                    color: Color(0x141B254B),
-                    blurRadius: 30,
-                    offset: Offset(0, 10),
+                    color: Color(0x181B254B),
+                    blurRadius: 28,
+                    offset: Offset(0, 8),
                   ),
                 ],
               ),

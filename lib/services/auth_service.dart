@@ -12,7 +12,7 @@ class AuthService {
       UserCredential userCredential = await _auth
           .createUserWithEmailAndPassword(email: email, password: password);
 
-      // 2. Menyimpan data profil ke Cloud Firestore dengan batas waktu (timeout) 10 detik
+      // 2. Menyimpan data profil ke Cloud Firestore
       await _firestore
           .collection('users')
           .doc(userCredential.user!.uid)
@@ -22,14 +22,18 @@ class AuthService {
             'email': email,
             'phone': '',
             'photoUrl': '',
+            'created_at': FieldValue.serverTimestamp(),
           })
           .timeout(const Duration(seconds: 10));
 
       return null; // Sukses
     } on FirebaseAuthException catch (e) {
-      return e.message;
+      if (e.code == 'weak-password') return 'Password terlalu lemah (minimal 6 karakter).';
+      if (e.code == 'email-already-in-use') return 'Email sudah terdaftar. Silakan login.';
+      if (e.code == 'invalid-email') return 'Format email tidak valid.';
+      return e.message ?? 'Registrasi gagal.';
     } catch (e) {
-      return "Gagal terhubung ke database. Pastikan Firestore sudah diaktifkan.";
+      return 'Gagal terhubung ke database. Pastikan koneksi internet aktif.';
     }
   }
 
@@ -39,7 +43,12 @@ class AuthService {
       await _auth.signInWithEmailAndPassword(email: email, password: password);
       return null;
     } on FirebaseAuthException catch (e) {
-      return e.message;
+      if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        return 'Email atau password yang Anda masukkan salah.';
+      }
+      if (e.code == 'invalid-email') return 'Format email tidak valid.';
+      if (e.code == 'network-request-failed') return 'Koneksi internet bermasalah. Periksa koneksi Anda.';
+      return e.message ?? 'Login gagal. Silakan coba lagi.';
     } catch (e) {
       return e.toString();
     }
@@ -63,9 +72,8 @@ class AuthService {
         return doc.data() as Map<String, dynamic>?;
       }
     } catch (e) {
-      print("Error fetching user data: $e");
+      // Ignored
     }
     return null;
   }
 }
-

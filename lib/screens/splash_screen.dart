@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'login_screen.dart';
+import 'dashboard_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -33,13 +35,16 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    // Timer untuk pindah ke halaman Login setelah 3 detik
-    Future.delayed(const Duration(seconds: 3), () {
+    // Timer transisi otomatis: jika user sudah login, langsung ke Dashboard
+    Future.delayed(const Duration(milliseconds: 2200), () {
       if (mounted) {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        final targetScreen = currentUser != null ? const DashboardScreen() : const LoginScreen();
+
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+            pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(opacity: animation, child: child);
             },
