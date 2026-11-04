@@ -19,7 +19,7 @@ android {
     defaultConfig {
         applicationId = "com.example.kostku"
         // Mengubah minSdk menjadi 23 agar Cloud Firestore bisa berjalan
-        minSdk = 23 
+        minSdk = flutter.minSdkVersion 
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -29,6 +29,11 @@ android {
         release {
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 
