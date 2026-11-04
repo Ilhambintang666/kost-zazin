@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../models/payment.dart';
 import '../models/room.dart';
+import '../utils/whatsapp_helper.dart';
 
 class HomeTabScreen extends StatefulWidget {
   const HomeTabScreen({super.key});
@@ -17,10 +18,10 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
 
   String _formatRupiah(double amount) {
     try {
-      final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+      final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp .', decimalDigits: 0);
       return formatter.format(amount);
     } catch (_) {
-      return 'Rp ${amount.toInt()}';
+      return 'Rp .${amount.toInt()}';
     }
   }
 
@@ -365,24 +366,50 @@ class _HomeTabScreenState extends State<HomeTabScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: badgeBg,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  badgeText,
-                  style: GoogleFonts.plusJakartaSans(color: badgeColor, fontSize: 11, fontWeight: FontWeight.bold),
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: badgeBg,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      badgeText,
+                      style: GoogleFonts.plusJakartaSans(color: badgeColor, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatDate(room.nextDueDate!),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFF2B3674), fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                _formatDate(room.nextDueDate!),
-                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFF2B3674), fontWeight: FontWeight.w600),
+              const SizedBox(width: 8),
+              // Tombol WhatsApp Cepat
+              IconButton(
+                onPressed: () {
+                  WhatsAppHelper.sendRentBill(
+                    context: context,
+                    phone: room.tenantPhone,
+                    tenantName: room.tenantName,
+                    roomNumber: room.roomNumber,
+                    amount: room.price,
+                    dueDate: room.nextDueDate,
+                    status: isOverdue ? 'Terlambat Bayar' : 'Jatuh Tempo',
+                  );
+                },
+                icon: const Icon(Icons.chat_rounded, color: Color(0xFF25D366), size: 22),
+                tooltip: 'Ingatkan Tagihan via WhatsApp',
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFF0FDF4),
+                  padding: const EdgeInsets.all(8),
+                ),
               ),
             ],
           ),

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../models/room.dart';
+import '../widgets/notification_modal.dart';
 import 'home_tab_screen.dart';
 import 'kamar_screen.dart';
 import 'pembayaran_screen.dart';
@@ -50,14 +53,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF4F7FE),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.notifications_none_rounded, color: primaryNavy, size: 20),
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
+            builder: (context, snapshot) {
+              int overdueCount = 0;
+              if (snapshot.hasData) {
+                for (var doc in snapshot.data!.docs) {
+                  final r = Room.fromFirestore(doc);
+                  if (r.isOccupied && r.isOverdue) {
+                    overdueCount++;
+                  }
+                }
+              }
+
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: () => NotificationModal.show(context),
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 16),
+                      padding: const EdgeInsets.all(9),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF4F7FE),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.notifications_none_rounded, color: primaryNavy, size: 22),
+                    ),
+                  ),
+                  if (overdueCount > 0)
+                    Positioned(
+                      top: 10,
+                      right: 16,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEE5D50),
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                        child: Center(
+                          child: Text(
+                            '$overdueCount',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),

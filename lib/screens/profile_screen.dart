@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 
@@ -15,6 +17,8 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final User? currentUser = FirebaseAuth.instance.currentUser;
+  final ImagePicker _picker = ImagePicker();
+  bool _isUploadingPhoto = false;
 
   String _formatJoinDate() {
     final date = currentUser?.metadata.creationTime;
@@ -24,6 +28,138 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  Future<void> _pickAndUploadPhoto(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 80,
+      );
+
+      if (pickedFile == null || currentUser == null) return;
+
+      setState(() => _isUploadingPhoto = true);
+
+      final bytes = await pickedFile.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).set({
+        'photo_base64': base64Image,
+      }, SetOptions(merge: true));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Foto profil berhasil diperbarui!', style: GoogleFonts.plusJakartaSans()),
+            backgroundColor: const Color(0xFF059669),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memilih foto: $e', style: GoogleFonts.plusJakartaSans()),
+            backgroundColor: const Color(0xFFEE5D50),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
+    }
+  }
+
+  Future<void> _removePhoto() async {
+    if (currentUser == null) return;
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).set({
+        'photo_base64': null,
+      }, SetOptions(merge: true));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Foto profil berhasil dihapus.', style: GoogleFonts.plusJakartaSans()),
+            backgroundColor: const Color(0xFF059669),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menghapus foto: $e', style: GoogleFonts.plusJakartaSans()),
+            backgroundColor: const Color(0xFFEE5D50),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showPhotoOptions(bool hasPhoto) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor: Colors.white,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(2)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Foto Profil',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: const Color(0xFF2B3674)),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.photo_library_rounded, color: Color(0xFF4318FF)),
+                  title: Text('Pilih dari Galeri', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickAndUploadPhoto(ImageSource.gallery);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.camera_alt_rounded, color: Color(0xFF4318FF)),
+                  title: Text('Ambil dari Kamera', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickAndUploadPhoto(ImageSource.camera);
+                  },
+                ),
+                if (hasPhoto)
+                  ListTile(
+                    leading: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEE5D50)),
+                    title: Text('Hapus Foto Profil', style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEE5D50), fontWeight: FontWeight.w600)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _removePhoto();
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -37,7 +173,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
         child: Column(
           children: [
-            // Center Profile Avatar with Glowing Ring
+            // Center Profile Avatar with Glowing Ring and Camera Action
             StreamBuilder<DocumentSnapshot>(
               stream: currentUser != null
                   ? FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).snapshots()
@@ -45,47 +181,91 @@ class _ProfileScreenState extends State<ProfileScreen> {
               builder: (context, snapshot) {
                 String name = 'Admin Kost';
                 String email = currentUser?.email ?? 'admin@kostku.com';
+                String? photoBase64;
 
                 if (snapshot.hasData && snapshot.data!.exists) {
                   final data = snapshot.data!.data() as Map<String, dynamic>?;
                   if (data != null) {
                     name = data['name'] ?? name;
                     email = data['email'] ?? email;
+                    photoBase64 = data['photo_base64'];
+                  }
+                }
+
+                ImageProvider? imageProvider;
+                if (photoBase64 != null && photoBase64.isNotEmpty) {
+                  try {
+                    imageProvider = MemoryImage(base64Decode(photoBase64));
+                  } catch (_) {
+                    imageProvider = null;
                   }
                 }
 
                 return Column(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [primaryNavy, accentIndigo],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: accentIndigo.withValues(alpha: 0.35),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              colors: [primaryNavy, accentIndigo],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: accentIndigo.withValues(alpha: 0.35),
+                                blurRadius: 24,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: const CircleAvatar(
-                        radius: 46,
-                        backgroundColor: Colors.white,
-                        child: CircleAvatar(
-                          radius: 42,
-                          backgroundColor: Color(0xFFF4F7FE),
-                          child: Icon(
-                            Icons.admin_panel_settings_rounded,
-                            size: 46,
-                            color: primaryNavy,
+                          child: CircleAvatar(
+                            radius: 48,
+                            backgroundColor: Colors.white,
+                            child: _isUploadingPhoto
+                                ? const CircularProgressIndicator(color: accentIndigo)
+                                : CircleAvatar(
+                                    radius: 44,
+                                    backgroundColor: const Color(0xFFF4F7FE),
+                                    backgroundImage: imageProvider,
+                                    child: imageProvider == null
+                                        ? const Icon(
+                                            Icons.person_rounded,
+                                            size: 46,
+                                            color: primaryNavy,
+                                          )
+                                        : null,
+                                  ),
                           ),
                         ),
-                      ),
+                        GestureDetector(
+                          onTap: () => _showPhotoOptions(photoBase64 != null && photoBase64.isNotEmpty),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: accentIndigo,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2.5),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x33000000),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt_rounded,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -130,7 +310,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               },
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
 
             // Statistik Kamar (Live dari Firestore)
             StreamBuilder<QuerySnapshot>(

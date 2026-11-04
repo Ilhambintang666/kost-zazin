@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../models/payment.dart';
 import '../models/room.dart';
 import '../widgets/custom_fab_location.dart';
+import '../utils/currency_formatter.dart';
+import '../utils/whatsapp_helper.dart';
 
 class PembayaranScreen extends StatefulWidget {
   const PembayaranScreen({super.key});
@@ -21,10 +24,10 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
 
   String _formatRupiah(double amount) {
     try {
-      final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+      final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp .', decimalDigits: 0);
       return formatter.format(amount);
     } catch (_) {
-      return 'Rp ${amount.toInt()}';
+      return 'Rp .${amount.toInt()}';
     }
   }
 
@@ -430,25 +433,67 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
             ],
             const SizedBox(height: 12),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                // Tombol WhatsApp untuk konfirmasi bayar / info
                 TextButton.icon(
-                  onPressed: () => _showAddOrEditPaymentModal(payment: payment),
-                  icon: const Icon(Icons.edit_rounded, size: 16),
-                  label: Text('Edit', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () async {
+                    String phone = '';
+                    if (payment.roomId.isNotEmpty) {
+                      try {
+                        final roomDoc = await _firestore.collection('rooms').doc(payment.roomId).get();
+                        if (roomDoc.exists) {
+                          phone = roomDoc.data()?['tenant_phone'] ?? '';
+                        }
+                      } catch (_) {}
+                    }
+
+                    if (mounted) {
+                      WhatsAppHelper.sendRentBill(
+                        context: context,
+                        phone: phone,
+                        tenantName: payment.tenantName,
+                        roomNumber: payment.roomNumber,
+                        amount: payment.amount,
+                        dueDate: payment.nextDueDate,
+                        status: payment.status,
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.chat_rounded, size: 15, color: Color(0xFF25D366)),
+                  label: Text(
+                    'Kirim WA',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF15803D)),
+                  ),
                   style: TextButton.styleFrom(
-                    foregroundColor: accentIndigo,
-                    backgroundColor: const Color(0xFFEEF2FF),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    backgroundColor: const Color(0xFFF0FDF4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () => _confirmDeletePayment(payment),
-                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                  style: IconButton.styleFrom(foregroundColor: const Color(0xFFEE5D50)),
-                  tooltip: 'Hapus Transaksi',
+
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => _showAddOrEditPaymentModal(payment: payment),
+                      icon: const Icon(Icons.edit_rounded, size: 16),
+                      label: Text('Edit', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: accentIndigo,
+                        backgroundColor: const Color(0xFFEEF2FF),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () => _confirmDeletePayment(payment),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                      style: IconButton.styleFrom(foregroundColor: const Color(0xFFEE5D50)),
+                      tooltip: 'Hapus Transaksi',
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -464,7 +509,9 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
 
     String? selectedRoomId = isEditing ? payment.roomId : null;
     String selectedRoomNumber = isEditing ? payment.roomNumber : '';
-    final amountController = TextEditingController(text: isEditing ? payment.amount.toInt().toString() : '');
+    final amountController = TextEditingController(
+      text: isEditing ? CurrencyInputFormatter.formatNumber(payment.amount) : '',
+    );
     final tenantController = TextEditingController(text: isEditing ? payment.tenantName : '');
     final notesController = TextEditingController(text: isEditing ? payment.notes : '');
 
@@ -520,7 +567,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                           return Container(
                             decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
                             child: DropdownButtonFormField<String>(
-                              value: validRoomId,
+                              initialValue: validRoomId,
                               style: GoogleFonts.plusJakartaSans(fontSize: 14, color: primaryNavy),
                               decoration: const InputDecoration(
                                 prefixIcon: Icon(Icons.meeting_room_outlined, color: Color(0xFFA3AED0)),
@@ -541,7 +588,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                                     selectedRoomId = roomId;
                                     selectedRoomNumber = room.roomNumber;
                                     if (room.price > 0 && amountController.text.isEmpty) {
-                                      amountController.text = room.price.toInt().toString();
+                                      amountController.text = CurrencyInputFormatter.formatNumber(room.price);
                                     }
                                     if (tenantController.text.isEmpty) {
                                       tenantController.text = room.tenantName;
@@ -578,25 +625,32 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Amount
-                      Text('Jumlah Bayar (Rp)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: primaryNavy)),
+                      // Amount with CurrencyInputFormatter
+                      Text('Jumlah Bayar (Rp .700.000)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: primaryNavy)),
                       const SizedBox(height: 6),
                       Container(
                         decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
                         child: TextFormField(
                           controller: amountController,
                           keyboardType: TextInputType.number,
-                          style: GoogleFonts.plusJakartaSans(fontSize: 14, color: primaryNavy),
-                          decoration: const InputDecoration(
-                            hintText: 'Contoh: 1500000',
-                            prefixIcon: Icon(Icons.payments_outlined, color: Color(0xFFA3AED0)),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            CurrencyInputFormatter(),
+                          ],
+                          style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: primaryNavy),
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.payments_outlined, color: Color(0xFFA3AED0)),
+                            prefixText: 'Rp .',
+                            prefixStyle: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: primaryNavy),
+                            hintText: '700.000',
+                            hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFFA3AED0), fontSize: 14, fontWeight: FontWeight.normal),
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           ),
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) return 'Jumlah bayar wajib diisi';
-                            final sanitized = v.replaceAll('.', '').replaceAll(',', '').trim();
-                            if (double.tryParse(sanitized) == null) return 'Masukkan angka yang valid';
+                            final sanitized = CurrencyInputFormatter.parse(v);
+                            if (sanitized <= 0) return 'Masukkan nominal yang valid';
                             return null;
                           },
                         ),
@@ -609,7 +663,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                       Container(
                         decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
                         child: DropdownButtonFormField<String>(
-                          value: paymentStatus,
+                          initialValue: paymentStatus,
                           style: GoogleFonts.plusJakartaSans(fontSize: 14, color: primaryNavy),
                           decoration: const InputDecoration(
                             prefixIcon: Icon(Icons.check_circle_outline_rounded, color: Color(0xFFA3AED0)),
@@ -721,12 +775,12 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                               ? null
                               : () async {
                                   if (!formKey.currentState!.validate()) return;
+                                  final scaffoldMessenger = ScaffoldMessenger.of(context);
+                                  final navigator = Navigator.of(context);
                                   setModalState(() => isLoading = true);
 
                                   try {
-                                    final sanitizedAmount = double.parse(
-                                      amountController.text.replaceAll('.', '').replaceAll(',', '').trim(),
-                                    );
+                                    final sanitizedAmount = CurrencyInputFormatter.parse(amountController.text);
 
                                     final paymentData = {
                                       'roomId': selectedRoomId ?? '',
@@ -755,30 +809,26 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                                       });
                                     }
 
-                                    if (mounted) {
-                                      Navigator.pop(context);
-                                      ScaffoldMessenger.of(this.context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            isEditing ? 'Pembayaran berhasil diperbarui!' : 'Pembayaran berhasil dicatat!',
-                                            style: GoogleFonts.plusJakartaSans(),
-                                          ),
-                                          backgroundColor: const Color(0xFF059669),
-                                          behavior: SnackBarBehavior.floating,
+                                    navigator.pop();
+                                    scaffoldMessenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          isEditing ? 'Pembayaran berhasil diperbarui!' : 'Pembayaran berhasil dicatat!',
+                                          style: GoogleFonts.plusJakartaSans(),
                                         ),
-                                      );
-                                    }
+                                        backgroundColor: const Color(0xFF059669),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
                                   } catch (e) {
                                     setModalState(() => isLoading = false);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(this.context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Gagal menyimpan data. Silakan coba lagi.', style: GoogleFonts.plusJakartaSans()),
-                                          backgroundColor: const Color(0xFFEE5D50),
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      );
-                                    }
+                                    scaffoldMessenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text('Gagal menyimpan data. Silakan coba lagi.', style: GoogleFonts.plusJakartaSans()),
+                                        backgroundColor: const Color(0xFFEE5D50),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
                                   }
                                 },
                           style: ElevatedButton.styleFrom(

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../models/room.dart';
 import '../widgets/custom_fab_location.dart';
+import '../utils/whatsapp_helper.dart';
+import '../utils/currency_formatter.dart';
 
 class KamarScreen extends StatefulWidget {
   const KamarScreen({super.key});
@@ -20,10 +23,10 @@ class _KamarScreenState extends State<KamarScreen> {
 
   String _formatRupiah(double amount) {
     try {
-      final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+      final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp .', decimalDigits: 0);
       return formatter.format(amount);
     } catch (_) {
-      return 'Rp ${amount.toInt()}';
+      return 'Rp .${amount.toInt()}';
     }
   }
 
@@ -390,27 +393,43 @@ class _KamarScreenState extends State<KamarScreen> {
             ),
             if (isOccupied && room.tenantPhone.isNotEmpty) ...[
               const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFDCFCE7)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.phone_rounded, size: 15, color: Color(0xFF15803D)),
-                    const SizedBox(width: 6),
-                    Text(
-                      room.tenantPhone,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        color: const Color(0xFF15803D),
-                        fontWeight: FontWeight.w600,
+              InkWell(
+                onTap: () {
+                  WhatsAppHelper.sendRentBill(
+                    context: context,
+                    phone: room.tenantPhone,
+                    tenantName: room.tenantName,
+                    roomNumber: room.roomNumber,
+                    amount: room.price,
+                    dueDate: room.nextDueDate,
+                    status: room.isOverdue ? 'Terlambat Bayar' : 'Belum Lunas',
+                  );
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFDCFCE7)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.chat_rounded, size: 14, color: Color(0xFF15803D)),
+                      const SizedBox(width: 6),
+                      Text(
+                        room.tenantPhone,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          color: const Color(0xFF15803D),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      const Icon(Icons.open_in_new_rounded, size: 12, color: Color(0xFF15803D)),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -439,6 +458,40 @@ class _KamarScreenState extends State<KamarScreen> {
                 ),
               ),
             ],
+
+            // Tombol Kirim Tagihan via WhatsApp (jika terisi)
+            if (isOccupied) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    WhatsAppHelper.sendRentBill(
+                      context: context,
+                      phone: room.tenantPhone,
+                      tenantName: room.tenantName,
+                      roomNumber: room.roomNumber,
+                      amount: room.price,
+                      dueDate: room.nextDueDate,
+                      status: room.isOverdue ? 'Terlambat Bayar' : 'Belum Lunas',
+                    );
+                  },
+                  icon: const Icon(Icons.chat_rounded, size: 16, color: Colors.white),
+                  label: Text(
+                    'Kirim Tagihan via WhatsApp',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ],
+
             const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -508,7 +561,9 @@ class _KamarScreenState extends State<KamarScreen> {
     final formKey = GlobalKey<FormState>();
 
     final roomNumberController = TextEditingController(text: isEditing ? room.roomNumber : '');
-    final priceController = TextEditingController(text: isEditing && room.price > 0 ? room.price.toInt().toString() : '');
+    final priceController = TextEditingController(
+      text: isEditing && room.price > 0 ? CurrencyInputFormatter.formatNumber(room.price) : '',
+    );
     final tenantNameController = TextEditingController(text: isEditing ? room.tenantName : '');
     final tenantPhoneController = TextEditingController(text: isEditing ? room.tenantPhone : '');
     final descriptionController = TextEditingController(text: isEditing ? room.description : '');
@@ -581,25 +636,32 @@ class _KamarScreenState extends State<KamarScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Price
-                      Text('Harga Sewa Per Bulan (Rp)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: primaryNavy)),
+                      // Price with "Rp ." prefix and thousand separator
+                      Text('Harga Sewa Per Bulan (Rp .700.000)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: primaryNavy)),
                       const SizedBox(height: 6),
                       Container(
                         decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
                         child: TextFormField(
                           controller: priceController,
                           keyboardType: TextInputType.number,
-                          style: GoogleFonts.plusJakartaSans(fontSize: 14, color: primaryNavy),
-                          decoration: const InputDecoration(
-                            hintText: 'Contoh: 1500000',
-                            prefixIcon: Icon(Icons.payments_outlined, color: Color(0xFFA3AED0)),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            CurrencyInputFormatter(),
+                          ],
+                          style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: primaryNavy),
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.payments_outlined, color: Color(0xFFA3AED0)),
+                            prefixText: 'Rp .',
+                            prefixStyle: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: primaryNavy),
+                            hintText: '700.000',
+                            hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFFA3AED0), fontSize: 14, fontWeight: FontWeight.normal),
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           ),
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) return 'Wajib diisi';
-                            final sanitized = v.replaceAll('.', '').replaceAll(',', '').trim();
-                            if (double.tryParse(sanitized) == null) return 'Masukkan angka yang valid';
+                            final sanitized = CurrencyInputFormatter.parse(v);
+                            if (sanitized <= 0) return 'Masukkan nominal yang valid';
                             return null;
                           },
                         ),
@@ -612,7 +674,7 @@ class _KamarScreenState extends State<KamarScreen> {
                       Container(
                         decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
                         child: DropdownButtonFormField<String>(
-                          value: selectedStatus,
+                          initialValue: selectedStatus,
                           style: GoogleFonts.plusJakartaSans(fontSize: 14, color: primaryNavy),
                           decoration: const InputDecoration(
                             prefixIcon: Icon(Icons.info_outline_rounded, color: Color(0xFFA3AED0)),
@@ -668,7 +730,7 @@ class _KamarScreenState extends State<KamarScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 16),
-                                  Text('No. HP Penghuni', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: primaryNavy)),
+                                  Text('No. HP Penghuni (Untuk WhatsApp)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: primaryNavy)),
                                   const SizedBox(height: 6),
                                   Container(
                                     decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
@@ -678,7 +740,7 @@ class _KamarScreenState extends State<KamarScreen> {
                                       style: GoogleFonts.plusJakartaSans(fontSize: 14, color: primaryNavy),
                                       decoration: const InputDecoration(
                                         hintText: 'Contoh: 081234567890',
-                                        prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFFA3AED0)),
+                                        prefixIcon: Icon(Icons.chat_rounded, color: Color(0xFF25D366)),
                                         border: InputBorder.none,
                                         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                       ),
@@ -777,12 +839,12 @@ class _KamarScreenState extends State<KamarScreen> {
                               ? null
                               : () async {
                                   if (!formKey.currentState!.validate()) return;
+                                  final scaffoldMessenger = ScaffoldMessenger.of(context);
+                                  final navigator = Navigator.of(context);
                                   setModalState(() => isLoading = true);
 
                                   try {
-                                    final sanitizedPrice = double.parse(
-                                      priceController.text.replaceAll('.', '').replaceAll(',', '').trim(),
-                                    );
+                                    final sanitizedPrice = CurrencyInputFormatter.parse(priceController.text);
 
                                     final roomData = {
                                       'room_number': roomNumberController.text.trim(),
@@ -803,30 +865,26 @@ class _KamarScreenState extends State<KamarScreen> {
                                       await _firestore.collection('rooms').add(roomData);
                                     }
 
-                                    if (mounted) {
-                                      Navigator.pop(context);
-                                      ScaffoldMessenger.of(this.context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            isEditing ? 'Data kamar berhasil diperbarui!' : 'Kamar baru berhasil ditambahkan!',
-                                            style: GoogleFonts.plusJakartaSans(),
-                                          ),
-                                          backgroundColor: const Color(0xFF059669),
-                                          behavior: SnackBarBehavior.floating,
+                                    navigator.pop();
+                                    scaffoldMessenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          isEditing ? 'Data kamar berhasil diperbarui!' : 'Kamar baru berhasil ditambahkan!',
+                                          style: GoogleFonts.plusJakartaSans(),
                                         ),
-                                      );
-                                    }
+                                        backgroundColor: const Color(0xFF059669),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
                                   } catch (e) {
                                     setModalState(() => isLoading = false);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(this.context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Gagal menyimpan data. Silakan coba lagi.', style: GoogleFonts.plusJakartaSans()),
-                                          backgroundColor: const Color(0xFFEE5D50),
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      );
-                                    }
+                                    scaffoldMessenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text('Gagal menyimpan data. Silakan coba lagi.', style: GoogleFonts.plusJakartaSans()),
+                                        backgroundColor: const Color(0xFFEE5D50),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
                                   }
                                 },
                           style: ElevatedButton.styleFrom(
