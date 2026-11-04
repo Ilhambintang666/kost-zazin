@@ -51,7 +51,7 @@ class HomeTabScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: accentIndigo.withOpacity(0.3),
+                    color: accentIndigo.withValues(alpha: 0.3),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -76,7 +76,7 @@ class HomeTabScreen extends StatelessWidget {
                         Text(
                           'Kelola operasional & penghuni KostKu secara praktis dan terorganisir',
                           style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white.withOpacity(0.85),
+                            color: Colors.white.withValues(alpha: 0.85),
                             fontSize: 13,
                           ),
                         ),
@@ -87,7 +87,7 @@ class HomeTabScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
+                      color: Colors.white.withValues(alpha: 0.18),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.home_work_rounded, color: Colors.white, size: 28),

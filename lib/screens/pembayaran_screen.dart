@@ -48,7 +48,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
     const accentIndigo = Color(0xFF4318FF);
     final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final fabBottomOffset = (bottomPadding > 0 ? bottomPadding + 8 : 16) + 66 + 14;
+    final double fabBottomOffset = (bottomPadding > 0 ? bottomPadding + 8.0 : 16.0) + 80.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -455,7 +455,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                           return Container(
                             decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
                             child: DropdownButtonFormField<String>(
-                              value: selectedRoomId,
+                              initialValue: selectedRoomId,
                               style: GoogleFonts.plusJakartaSans(fontSize: 14, color: primaryNavy),
                               decoration: const InputDecoration(
                                 prefixIcon: Icon(Icons.meeting_room_outlined, color: Color(0xFFA3AED0)),
@@ -542,7 +542,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                       Container(
                         decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
                         child: DropdownButtonFormField<String>(
-                          value: paymentStatus,
+                          initialValue: paymentStatus,
                           style: GoogleFonts.plusJakartaSans(fontSize: 14, color: primaryNavy),
                           decoration: const InputDecoration(
                             prefixIcon: Icon(Icons.check_circle_outline_rounded, color: Color(0xFFA3AED0)),
