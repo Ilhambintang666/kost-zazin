@@ -69,11 +69,30 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                 if (snapshot.hasError) {
                   return Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Text(
-                        'Terjadi kesalahan saat memuat data: ${snapshot.error}',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEE5D50)),
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.cloud_off_rounded, size: 56, color: Color(0xFFA3AED0)),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Gagal memuat data',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: primaryNavy,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Periksa koneksi internet Anda dan coba lagi.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              color: const Color(0xFFA3AED0),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -117,10 +136,10 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
       floatingActionButton: isKeyboardOpen
           ? null
           : FloatingActionButton.extended(
-              onPressed: () => _showAddPaymentModal(),
+              onPressed: () => _showAddOrEditPaymentModal(),
               icon: const Icon(Icons.add_card_rounded, size: 22, color: Colors.white),
               label: Text(
-                'Catat Bayar',
+                'Catat Pembayaran',
                 style: GoogleFonts.plusJakartaSans(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -188,7 +207,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
           ),
           const SizedBox(height: 14),
 
-          // Filled Search
+          // Search with Clear Button
           Container(
             decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
             child: TextField(
@@ -199,6 +218,15 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                 hintText: 'Cari kamar atau penghuni...',
                 hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFFA3AED0), fontSize: 13),
                 prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFFA3AED0), size: 20),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFFA3AED0)),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
@@ -286,11 +314,26 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Klik tombol "Catat Bayar" di bawah untuk mencatat transaksi sewa kamar.',
+              'Klik tombol di bawah untuk mencatat transaksi sewa kamar pertama.',
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 color: const Color(0xFFA3AED0),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => _showAddOrEditPaymentModal(),
+              icon: const Icon(Icons.add_card_rounded, size: 18),
+              label: Text(
+                'Catat Pembayaran Pertama',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accentIndigo,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
             ),
           ],
@@ -386,14 +429,28 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
               ),
             ],
             const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () => _confirmDeletePayment(payment),
-                icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                label: Text('Hapus Transaksi', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
-                style: TextButton.styleFrom(foregroundColor: const Color(0xFFEE5D50)),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _showAddOrEditPaymentModal(payment: payment),
+                  icon: const Icon(Icons.edit_rounded, size: 16),
+                  label: Text('Edit', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: TextButton.styleFrom(
+                    foregroundColor: accentIndigo,
+                    backgroundColor: const Color(0xFFEEF2FF),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => _confirmDeletePayment(payment),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                  style: IconButton.styleFrom(foregroundColor: const Color(0xFFEE5D50)),
+                  tooltip: 'Hapus Transaksi',
+                ),
+              ],
             ),
           ],
         ),
@@ -401,17 +458,19 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
     );
   }
 
-  void _showAddPaymentModal() {
+  void _showAddOrEditPaymentModal({Payment? payment}) {
+    final isEditing = payment != null;
     final formKey = GlobalKey<FormState>();
-    String? selectedRoomId;
-    Room? selectedRoomObj;
-    final amountController = TextEditingController();
-    final tenantController = TextEditingController();
-    final notesController = TextEditingController();
 
-    DateTime paymentDate = DateTime.now();
-    DateTime nextDueDate = DateTime.now().add(const Duration(days: 30));
-    String paymentStatus = 'Lunas';
+    String? selectedRoomId = isEditing ? payment.roomId : null;
+    String selectedRoomNumber = isEditing ? payment.roomNumber : '';
+    final amountController = TextEditingController(text: isEditing ? payment.amount.toInt().toString() : '');
+    final tenantController = TextEditingController(text: isEditing ? payment.tenantName : '');
+    final notesController = TextEditingController(text: isEditing ? payment.notes : '');
+
+    DateTime paymentDate = isEditing ? payment.paymentDate : DateTime.now();
+    DateTime nextDueDate = isEditing ? payment.nextDueDate : DateTime.now().add(const Duration(days: 30));
+    String paymentStatus = isEditing ? payment.status : 'Lunas';
     bool isLoading = false;
 
     showModalBottomSheet(
@@ -438,7 +497,10 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                         child: Container(width: 44, height: 5, decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(3))),
                       ),
                       const SizedBox(height: 20),
-                      Text('Catat Pembayaran Baru', style: GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.bold, color: primaryNavy)),
+                      Text(
+                        isEditing ? 'Edit Catatan Pembayaran' : 'Catat Pembayaran Baru',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 19, fontWeight: FontWeight.bold, color: primaryNavy),
+                      ),
                       const SizedBox(height: 20),
 
                       // Room Dropdown
@@ -452,10 +514,13 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                           }
                           final rooms = snapshot.data!.docs.map((doc) => Room.fromFirestore(doc)).toList();
 
+                          // Validasi agar selectedRoomId ada di daftar kamar
+                          final validRoomId = rooms.any((r) => r.id == selectedRoomId) ? selectedRoomId : null;
+
                           return Container(
                             decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
                             child: DropdownButtonFormField<String>(
-                              initialValue: selectedRoomId,
+                              value: validRoomId,
                               style: GoogleFonts.plusJakartaSans(fontSize: 14, color: primaryNavy),
                               decoration: const InputDecoration(
                                 prefixIcon: Icon(Icons.meeting_room_outlined, color: Color(0xFFA3AED0)),
@@ -474,18 +539,20 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                                   final room = rooms.firstWhere((r) => r.id == roomId);
                                   setModalState(() {
                                     selectedRoomId = roomId;
-                                    selectedRoomObj = room;
-                                    if (room.price > 0) {
+                                    selectedRoomNumber = room.roomNumber;
+                                    if (room.price > 0 && amountController.text.isEmpty) {
                                       amountController.text = room.price.toInt().toString();
                                     }
-                                    tenantController.text = room.tenantName;
-                                    if (room.nextDueDate != null) {
+                                    if (tenantController.text.isEmpty) {
+                                      tenantController.text = room.tenantName;
+                                    }
+                                    if (!isEditing && room.nextDueDate != null) {
                                       nextDueDate = room.nextDueDate!;
                                     }
                                   });
                                 }
                               },
-                              validator: (v) => v == null ? 'Silakan pilih kamar' : null,
+                              validator: (v) => v == null && selectedRoomId == null ? 'Silakan pilih kamar' : null,
                             ),
                           );
                         },
@@ -542,7 +609,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                       Container(
                         decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
                         child: DropdownButtonFormField<String>(
-                          initialValue: paymentStatus,
+                          value: paymentStatus,
                           style: GoogleFonts.plusJakartaSans(fontSize: 14, color: primaryNavy),
                           decoration: const InputDecoration(
                             prefixIcon: Icon(Icons.check_circle_outline_rounded, color: Color(0xFFA3AED0)),
@@ -661,21 +728,27 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                                       amountController.text.replaceAll('.', '').replaceAll(',', '').trim(),
                                     );
 
-                                    // 1. Simpan data pembayaran
-                                    await _firestore.collection('payments').add({
+                                    final paymentData = {
                                       'roomId': selectedRoomId ?? '',
-                                      'roomNumber': selectedRoomObj?.roomNumber ?? 'Kamar',
+                                      'roomNumber': selectedRoomNumber.isNotEmpty ? selectedRoomNumber : 'Kamar',
                                       'tenantName': tenantController.text.trim(),
                                       'amount': sanitizedAmount,
                                       'paymentDate': Timestamp.fromDate(paymentDate),
                                       'nextDueDate': Timestamp.fromDate(nextDueDate),
                                       'status': paymentStatus,
                                       'notes': notesController.text.trim(),
-                                      'createdAt': FieldValue.serverTimestamp(),
-                                    });
+                                      'updatedAt': FieldValue.serverTimestamp(),
+                                    };
 
-                                    // 2. Jika status Lunas dan ada kamar terpilih, perbarui next_due_date kamar
-                                    if (paymentStatus == 'Lunas' && selectedRoomId != null) {
+                                    if (isEditing) {
+                                      await _firestore.collection('payments').doc(payment.id).update(paymentData);
+                                    } else {
+                                      paymentData['createdAt'] = FieldValue.serverTimestamp();
+                                      await _firestore.collection('payments').add(paymentData);
+                                    }
+
+                                    // Jika status Lunas dan ada kamar terpilih, perbarui next_due_date kamar
+                                    if (paymentStatus == 'Lunas' && selectedRoomId != null && selectedRoomId!.isNotEmpty) {
                                       await _firestore.collection('rooms').doc(selectedRoomId).update({
                                         'next_due_date': Timestamp.fromDate(nextDueDate),
                                         'updated_at': FieldValue.serverTimestamp(),
@@ -686,7 +759,10 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                                       Navigator.pop(context);
                                       ScaffoldMessenger.of(this.context).showSnackBar(
                                         SnackBar(
-                                          content: Text('Pembayaran berhasil dicatat!', style: GoogleFonts.plusJakartaSans()),
+                                          content: Text(
+                                            isEditing ? 'Pembayaran berhasil diperbarui!' : 'Pembayaran berhasil dicatat!',
+                                            style: GoogleFonts.plusJakartaSans(),
+                                          ),
                                           backgroundColor: const Color(0xFF059669),
                                           behavior: SnackBarBehavior.floating,
                                         ),
@@ -697,7 +773,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                                     if (mounted) {
                                       ScaffoldMessenger.of(this.context).showSnackBar(
                                         SnackBar(
-                                          content: Text('Gagal menyimpan transaksi: $e', style: GoogleFonts.plusJakartaSans()),
+                                          content: Text('Gagal menyimpan data. Silakan coba lagi.', style: GoogleFonts.plusJakartaSans()),
                                           backgroundColor: const Color(0xFFEE5D50),
                                           behavior: SnackBarBehavior.floating,
                                         ),
@@ -716,7 +792,10 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                                   height: 24,
                                   child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                                 )
-                              : Text('Simpan Pembayaran', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold)),
+                              : Text(
+                                  isEditing ? 'Simpan Perubahan' : 'Simpan Pembayaran',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
                         ),
                       ),
                     ],
@@ -757,7 +836,7 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Gagal menghapus pembayaran: $e', style: GoogleFonts.plusJakartaSans()),
+                      content: Text('Gagal menghapus data. Silakan coba lagi.', style: GoogleFonts.plusJakartaSans()),
                       backgroundColor: const Color(0xFFEE5D50),
                       behavior: SnackBarBehavior.floating,
                     ),

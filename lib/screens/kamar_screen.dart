@@ -66,11 +66,30 @@ class _KamarScreenState extends State<KamarScreen> {
                 if (snapshot.hasError) {
                   return Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Text(
-                        'Terjadi kesalahan saat memuat data: ${snapshot.error}',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(color: const Color(0xFFEE5D50)),
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.cloud_off_rounded, size: 56, color: Color(0xFFA3AED0)),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Gagal memuat data',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: primaryNavy,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Periksa koneksi internet Anda dan coba lagi.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              color: const Color(0xFFA3AED0),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -171,7 +190,7 @@ class _KamarScreenState extends State<KamarScreen> {
           ),
           const SizedBox(height: 14),
 
-          // Filled Search Field
+          // Search Field with Clear Button
           Container(
             decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
             child: TextField(
@@ -182,6 +201,15 @@ class _KamarScreenState extends State<KamarScreen> {
                 hintText: 'Cari nomor kamar atau nama penghuni...',
                 hintStyle: GoogleFonts.plusJakartaSans(color: const Color(0xFFA3AED0), fontSize: 13),
                 prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFFA3AED0), size: 20),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFFA3AED0)),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
@@ -250,8 +278,8 @@ class _KamarScreenState extends State<KamarScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF2FF),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEEF2FF),
                 shape: BoxShape.circle,
               ),
               child: Icon(Icons.meeting_room_outlined, size: 56, color: accentIndigo),
@@ -348,11 +376,44 @@ class _KamarScreenState extends State<KamarScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text('Penghuni', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFFA3AED0))),
-                    Text(isOccupied ? room.tenantName : '(Kosong)', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: isOccupied ? FontWeight.bold : FontWeight.w400, color: primaryNavy)),
+                    Text(
+                      isOccupied ? room.tenantName : '(Kosong)',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        fontWeight: isOccupied ? FontWeight.bold : FontWeight.w400,
+                        color: primaryNavy,
+                      ),
+                    ),
                   ],
                 ),
               ],
             ),
+            if (isOccupied && room.tenantPhone.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFDCFCE7)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.phone_rounded, size: 15, color: Color(0xFF15803D)),
+                    const SizedBox(width: 6),
+                    Text(
+                      room.tenantPhone,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: const Color(0xFF15803D),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (isOccupied && room.dateOccupied != null) ...[
               const SizedBox(height: 14),
               Container(
@@ -415,13 +476,21 @@ class _KamarScreenState extends State<KamarScreen> {
                       onPressed: () => _showAddOrEditRoomModal(room: room),
                       icon: const Icon(Icons.edit_rounded, size: 16),
                       label: Text('Edit', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold)),
-                      style: TextButton.styleFrom(foregroundColor: accentIndigo),
+                      style: TextButton.styleFrom(
+                        foregroundColor: accentIndigo,
+                        backgroundColor: const Color(0xFFEEF2FF),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
-                    TextButton.icon(
+                    const SizedBox(width: 8),
+                    IconButton(
                       onPressed: () => _confirmDeleteRoom(room),
-                      icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                      label: Text('Hapus', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold)),
-                      style: TextButton.styleFrom(foregroundColor: const Color(0xFFEE5D50)),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                      style: IconButton.styleFrom(
+                        foregroundColor: const Color(0xFFEE5D50),
+                      ),
+                      tooltip: 'Hapus Kamar',
                     ),
                   ],
                 ),
@@ -441,6 +510,7 @@ class _KamarScreenState extends State<KamarScreen> {
     final roomNumberController = TextEditingController(text: isEditing ? room.roomNumber : '');
     final priceController = TextEditingController(text: isEditing && room.price > 0 ? room.price.toInt().toString() : '');
     final tenantNameController = TextEditingController(text: isEditing ? room.tenantName : '');
+    final tenantPhoneController = TextEditingController(text: isEditing ? room.tenantPhone : '');
     final descriptionController = TextEditingController(text: isEditing ? room.description : '');
 
     String selectedStatus = forceOccupiedMode
@@ -542,7 +612,7 @@ class _KamarScreenState extends State<KamarScreen> {
                       Container(
                         decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
                         child: DropdownButtonFormField<String>(
-                          initialValue: selectedStatus,
+                          value: selectedStatus,
                           style: GoogleFonts.plusJakartaSans(fontSize: 14, color: primaryNavy),
                           decoration: const InputDecoration(
                             prefixIcon: Icon(Icons.info_outline_rounded, color: Color(0xFFA3AED0)),
@@ -558,12 +628,13 @@ class _KamarScreenState extends State<KamarScreen> {
                               setModalState(() {
                                 selectedStatus = val;
                                 if (selectedStatus == 'Terisi') {
-                                  dateOccupied ??= DateTime.now();
-                                  nextDueDate = Room.calculateNextDueDate(dateOccupied!);
+                                    dateOccupied ??= DateTime.now();
+                                    nextDueDate = Room.calculateNextDueDate(dateOccupied!);
                                 } else {
                                   dateOccupied = null;
                                   nextDueDate = null;
                                   tenantNameController.clear();
+                                  tenantPhoneController.clear();
                                 }
                               });
                             }
@@ -594,6 +665,23 @@ class _KamarScreenState extends State<KamarScreen> {
                                         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                       ),
                                       validator: (v) => selectedStatus == 'Terisi' && (v == null || v.trim().isEmpty) ? 'Wajib diisi jika Terisi' : null,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text('No. HP Penghuni', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: primaryNavy)),
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    decoration: BoxDecoration(color: const Color(0xFFF4F7FE), borderRadius: BorderRadius.circular(16)),
+                                    child: TextFormField(
+                                      controller: tenantPhoneController,
+                                      keyboardType: TextInputType.phone,
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 14, color: primaryNavy),
+                                      decoration: const InputDecoration(
+                                        hintText: 'Contoh: 081234567890',
+                                        prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFFA3AED0)),
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 16),
@@ -701,6 +789,7 @@ class _KamarScreenState extends State<KamarScreen> {
                                       'price': sanitizedPrice,
                                       'status': selectedStatus,
                                       'tenant_name': selectedStatus == 'Terisi' ? tenantNameController.text.trim() : '',
+                                      'tenant_phone': selectedStatus == 'Terisi' ? tenantPhoneController.text.trim() : '',
                                       'date_occupied': selectedStatus == 'Terisi' && dateOccupied != null ? Timestamp.fromDate(dateOccupied!) : null,
                                       'next_due_date': selectedStatus == 'Terisi' && nextDueDate != null ? Timestamp.fromDate(nextDueDate!) : null,
                                       'description': descriptionController.text.trim(),
@@ -732,7 +821,7 @@ class _KamarScreenState extends State<KamarScreen> {
                                     if (mounted) {
                                       ScaffoldMessenger.of(this.context).showSnackBar(
                                         SnackBar(
-                                          content: Text('Gagal menyimpan: $e', style: GoogleFonts.plusJakartaSans()),
+                                          content: Text('Gagal menyimpan data. Silakan coba lagi.', style: GoogleFonts.plusJakartaSans()),
                                           backgroundColor: const Color(0xFFEE5D50),
                                           behavior: SnackBarBehavior.floating,
                                         ),
@@ -790,6 +879,7 @@ class _KamarScreenState extends State<KamarScreen> {
                 await _firestore.collection('rooms').doc(room.id).update({
                   'status': 'Tersedia',
                   'tenant_name': '',
+                  'tenant_phone': '',
                   'date_occupied': null,
                   'next_due_date': null,
                   'updated_at': FieldValue.serverTimestamp(),
@@ -807,7 +897,7 @@ class _KamarScreenState extends State<KamarScreen> {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Gagal check-out: $e', style: GoogleFonts.plusJakartaSans()),
+                      content: Text('Gagal melakukan check-out. Silakan coba lagi.', style: GoogleFonts.plusJakartaSans()),
                       backgroundColor: const Color(0xFFEE5D50),
                       behavior: SnackBarBehavior.floating,
                     ),
@@ -854,7 +944,7 @@ class _KamarScreenState extends State<KamarScreen> {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Gagal menghapus: $e', style: GoogleFonts.plusJakartaSans()),
+                      content: Text('Gagal menghapus kamar. Silakan coba lagi.', style: GoogleFonts.plusJakartaSans()),
                       backgroundColor: const Color(0xFFEE5D50),
                       behavior: SnackBarBehavior.floating,
                     ),

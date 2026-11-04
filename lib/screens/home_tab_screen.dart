@@ -5,8 +5,15 @@ import 'package:intl/intl.dart';
 import '../models/payment.dart';
 import '../models/room.dart';
 
-class HomeTabScreen extends StatelessWidget {
+class HomeTabScreen extends StatefulWidget {
   const HomeTabScreen({super.key});
+
+  @override
+  State<HomeTabScreen> createState() => _HomeTabScreenState();
+}
+
+class _HomeTabScreenState extends State<HomeTabScreen> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   String _formatRupiah(double amount) {
     try {
@@ -29,109 +36,85 @@ class HomeTabScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     const primaryNavy = Color(0xFF2B3674);
     const accentIndigo = Color(0xFF4318FF);
-    final firestore = FirebaseFirestore.instance;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Hero Welcome Card with Gradient
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [primaryNavy, accentIndigo],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _firestore.collection('rooms').snapshots(),
+        builder: (context, roomSnap) {
+          if (roomSnap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: accentIndigo));
+          }
+
+          if (roomSnap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.cloud_off_rounded, size: 56, color: Color(0xFFA3AED0)),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Gagal memuat data',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold, color: primaryNavy),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Periksa koneksi internet Anda dan coba lagi.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: const Color(0xFFA3AED0)),
+                    ),
+                  ],
                 ),
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: accentIndigo.withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Selamat Datang 👋',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Kelola operasional & penghuni KostKu secara praktis dan terorganisir',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
+            );
+          }
+
+          // Hitung semua statistik kamar dari satu stream
+          int totalRooms = 0;
+          int occupiedRooms = 0;
+          int availableRooms = 0;
+          int overdueCount = 0;
+          List<Room> upcomingDueRooms = [];
+
+          if (roomSnap.hasData) {
+            totalRooms = roomSnap.data!.docs.length;
+            for (var doc in roomSnap.data!.docs) {
+              final r = Room.fromFirestore(doc);
+              if (r.isOccupied) {
+                occupiedRooms++;
+                if (r.isOverdue) overdueCount++;
+                if (r.nextDueDate != null) upcomingDueRooms.add(r);
+              } else {
+                availableRooms++;
+              }
+            }
+          }
+
+          // Urutkan berdasarkan jatuh tempo terdekat
+          upcomingDueRooms.sort((a, b) => a.nextDueDate!.compareTo(b.nextDueDate!));
+          final upcoming = upcomingDueRooms.take(5).toList();
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Bento Grid Title
+                Text(
+                  'Ringkasan Bisnis',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: primaryNavy,
                   ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.home_work_rounded, color: Colors.white, size: 28),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
+                ),
+                const SizedBox(height: 14),
 
-            // Bento Grid Title
-            Text(
-              'Ringkasan Bisnis',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: primaryNavy,
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Bento Grid (2x2 Layout)
-            StreamBuilder<QuerySnapshot>(
-              stream: firestore.collection('rooms').snapshots(),
-              builder: (context, roomSnap) {
-                int totalRooms = 0;
-                int occupiedRooms = 0;
-                int availableRooms = 0;
-                int overdueCount = 0;
-
-                if (roomSnap.hasData) {
-                  totalRooms = roomSnap.data!.docs.length;
-                  for (var doc in roomSnap.data!.docs) {
-                    final r = Room.fromFirestore(doc);
-                    if (r.isOccupied) {
-                      occupiedRooms++;
-                      if (r.isOverdue) overdueCount++;
-                    } else {
-                      availableRooms++;
-                    }
-                  }
-                }
-
-                return StreamBuilder<QuerySnapshot>(
-                  stream: firestore.collection('payments').snapshots(),
+                // Bento Grid - Nested payment stream hanya untuk revenue
+                StreamBuilder<QuerySnapshot>(
+                  stream: _firestore.collection('payments').snapshots(),
                   builder: (context, paySnap) {
                     double monthlyRevenue = 0;
                     final now = DateTime.now();
@@ -203,15 +186,10 @@ class HomeTabScreen extends StatelessWidget {
                       ],
                     );
                   },
-                );
-              },
-            ),
-            const SizedBox(height: 24),
+                ),
+                const SizedBox(height: 24),
 
-            // Upcoming Due Dates Section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
+                // Tenggat Sewa Section Title
                 Text(
                   'Tenggat Sewa Penghuni',
                   style: GoogleFonts.plusJakartaSans(
@@ -220,52 +198,15 @@ class HomeTabScreen extends StatelessWidget {
                     color: primaryNavy,
                   ),
                 ),
-                Text(
-                  'Jatuh Tempo',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: accentIndigo,
-                  ),
-                ),
+                const SizedBox(height: 14),
+
+                // Daftar Jatuh Tempo (dari stream rooms yang sama)
+                if (upcoming.isEmpty) _buildEmptyDueCard(),
+                ...upcoming.map((r) => _buildRoomDueRowItem(r)),
               ],
             ),
-            const SizedBox(height: 14),
-
-            // Stream Rooms for Upcoming Due Dates of active tenants
-            StreamBuilder<QuerySnapshot>(
-              stream: firestore.collection('rooms').snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: accentIndigo));
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return _buildEmptyDueCard();
-                }
-
-                final docs = snapshot.data!.docs;
-                List<Room> occupiedRooms = docs
-                    .map((doc) => Room.fromFirestore(doc))
-                    .where((r) => r.isOccupied && r.nextDueDate != null)
-                    .toList();
-
-                if (occupiedRooms.isEmpty) {
-                  return _buildEmptyDueCard();
-                }
-
-                // Sort by due date (soonest / overdue first)
-                occupiedRooms.sort((a, b) => a.nextDueDate!.compareTo(b.nextDueDate!));
-
-                final upcoming = occupiedRooms.take(5).toList();
-
-                return Column(
-                  children: upcoming.map((r) => _buildRoomDueRowItem(r)).toList(),
-                );
-              },
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -391,32 +332,39 @@ class HomeTabScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF4F7FE),
-                  borderRadius: BorderRadius.circular(14),
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F7FE),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(Icons.meeting_room_rounded, color: badgeColor, size: 20),
                 ),
-                child: Icon(Icons.meeting_room_rounded, color: badgeColor, size: 20),
-              ),
-              const SizedBox(width: 14),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    room.roomNumber,
-                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 15, color: const Color(0xFF2B3674)),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        room.roomNumber,
+                        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 15, color: const Color(0xFF2B3674)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        room.tenantName.isNotEmpty ? room.tenantName : '(Tanpa Nama)',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFFA3AED0)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  Text(
-                    room.tenantName.isNotEmpty ? room.tenantName : '(Tanpa Nama)',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: const Color(0xFFA3AED0)),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [

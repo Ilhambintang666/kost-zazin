@@ -16,6 +16,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
   final User? currentUser = FirebaseAuth.instance.currentUser;
 
+  String _formatJoinDate() {
+    final date = currentUser?.metadata.creationTime;
+    if (date == null) return '-';
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
     const primaryNavy = Color(0xFF2B3674);
@@ -63,12 +73,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ],
                       ),
-                      child: CircleAvatar(
+                      child: const CircleAvatar(
                         radius: 46,
                         backgroundColor: Colors.white,
                         child: CircleAvatar(
                           radius: 42,
-                          backgroundColor: const Color(0xFFF4F7FE),
+                          backgroundColor: Color(0xFFF4F7FE),
                           child: Icon(
                             Icons.admin_panel_settings_rounded,
                             size: 46,
@@ -81,12 +91,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          name,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: primaryNavy,
+                        Flexible(
+                          child: Text(
+                            name,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: primaryNavy,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -119,7 +132,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 32),
 
-            // Unified White Settings Container (iOS Style)
+            // Statistik Kamar (Live dari Firestore)
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('rooms').snapshots(),
+              builder: (context, snapshot) {
+                int totalKamar = 0;
+                int terisi = 0;
+                int tersedia = 0;
+
+                if (snapshot.hasData) {
+                  totalKamar = snapshot.data!.docs.length;
+                  for (var doc in snapshot.data!.docs) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    if (data['status'] == 'Terisi') {
+                      terisi++;
+                    } else {
+                      tersedia++;
+                    }
+                  }
+                }
+
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [primaryNavy, accentIndigo],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: accentIndigo.withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatItem('$totalKamar', 'Total Kamar'),
+                      Container(width: 1, height: 36, color: Colors.white24),
+                      _buildStatItem('$terisi', 'Terisi'),
+                      Container(width: 1, height: 36, color: Colors.white24),
+                      _buildStatItem('$tersedia', 'Tersedia'),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+
+            // Unified White Settings Container
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -136,22 +201,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 children: [
                   _buildSettingsRow(
-                    icon: Icons.verified_user_rounded,
-                    title: 'Role Akun',
-                    subtitle: 'Administrator Kost',
-                    trailing: const Icon(Icons.verified_rounded, color: accentIndigo, size: 20),
-                  ),
-                  const Divider(height: 1, indent: 64, color: Color(0xFFF4F7FE)),
-                  _buildSettingsRow(
                     icon: Icons.info_outline_rounded,
                     title: 'Versi Aplikasi',
-                    subtitle: 'KostKu v1.0.0 (Production Ready)',
+                    subtitle: 'KostKu v1.0.0',
                   ),
                   const Divider(height: 1, indent: 64, color: Color(0xFFF4F7FE)),
                   _buildSettingsRow(
-                    icon: Icons.security_rounded,
-                    title: 'Keamanan Database',
-                    subtitle: 'Firebase Authentication & Cloud Firestore',
+                    icon: Icons.calendar_today_rounded,
+                    title: 'Bergabung Sejak',
+                    subtitle: _formatJoinDate(),
                   ),
                 ],
               ),
@@ -185,6 +243,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStatItem(String value, String label) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 12,
+            color: Colors.white70,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 

@@ -6,6 +6,7 @@ class Room {
   final double price;
   final String status; // 'Tersedia' or 'Terisi'
   final String tenantName;
+  final String tenantPhone;
   final DateTime? dateOccupied; // Tanggal Ditempati
   final DateTime? nextDueDate;  // Tanggal Jatuh Tempo (Auto Calculated)
   final String description;
@@ -17,6 +18,7 @@ class Room {
     required this.price,
     required this.status,
     this.tenantName = '',
+    this.tenantPhone = '',
     this.dateOccupied,
     this.nextDueDate,
     this.description = '',
@@ -67,6 +69,7 @@ class Room {
       price: (data['price'] ?? 0).toDouble(),
       status: data['status'] ?? 'Tersedia',
       tenantName: data['tenant_name'] ?? data['tenantName'] ?? '',
+      tenantPhone: data['tenant_phone'] ?? data['tenantPhone'] ?? '',
       dateOccupied: data['date_occupied'] != null
           ? (data['date_occupied'] as Timestamp).toDate()
           : (data['dateOccupied'] != null
@@ -92,6 +95,7 @@ class Room {
       'price': price,
       'status': status,
       'tenant_name': tenantName,
+      'tenant_phone': tenantPhone,
       'date_occupied': dateOccupied != null ? Timestamp.fromDate(dateOccupied!) : null,
       'next_due_date': nextDueDate != null ? Timestamp.fromDate(nextDueDate!) : null,
       'description': description,
@@ -107,6 +111,7 @@ class Room {
     double? price,
     String? status,
     String? tenantName,
+    String? tenantPhone,
     DateTime? dateOccupied,
     DateTime? nextDueDate,
     String? description,
@@ -118,6 +123,7 @@ class Room {
       price: price ?? this.price,
       status: status ?? this.status,
       tenantName: tenantName ?? this.tenantName,
+      tenantPhone: tenantPhone ?? this.tenantPhone,
       dateOccupied: dateOccupied ?? this.dateOccupied,
       nextDueDate: nextDueDate ?? this.nextDueDate,
       description: description ?? this.description,
